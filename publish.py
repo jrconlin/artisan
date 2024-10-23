@@ -123,7 +123,7 @@ def get_config(log: logging.Logger) -> argparse.Namespace:
         help="The title of your blog",
     )
     parser.add_argument(
-        "--url", default="https://blog.jrconlin.com", help="The location of your blog"
+        "--url", default="https://blog.unitedheroes.net", help="The location of your blog"
     )
     parser.add_argument(
         "--short_url",
