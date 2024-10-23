@@ -1,0 +1,17 @@
+RewriteEngine On
+RewriteBase /
+RewriteCond %{HTTPS} =On
+
+# because we don't have access to Rewritemap...
+# Check if the number is 1 digit long and prepend three zeros
+RewriteRule ^archives/p/([0-9])/.*$ /output/000$1.php [L]
+RewriteRule ^archives/p/([0-9]{2})/.*$ /output/00$1.php [L]
+RewriteRule ^archives/p/([0-9]{3})/.*$ /output/0$1.php [L]
+RewriteRule ^archives/p/([0-9]{4})/.*$ /output/$1.php [L]
+
+RewriteRule ^archives/p/category/([^a-z]+)/ /output/$1.php [NC, L]
+
+RewriteRule ^/([0-9])_.*$ /output/000$1.php [L]
+RewriteRule ^([0-9]{2})_.*$ /output/00$1.php [L]
+RewriteRule ^([0-9]{3})_.*$ /output/0$1.php [L]
+RewriteRule ^([0-9]{4})_.*$ /output/$1.php [L]
