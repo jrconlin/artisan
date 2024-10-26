@@ -117,7 +117,7 @@ async def dump_tags(
 ):
     for tag in current["tags"]:
         tag_file = tag.lower().replace(" ", "_").strip("'\"")
-        with open(f"{config.output_dir}/{tag_file}.html", "a") as file:
+        with open(f"{config.output_dir}/{tag_file}.inc", "a") as file:
             file.write(
                 f"""<li><a href="{current["link"]}">{current["title"]}</a></li>\n"""
             )
@@ -129,7 +129,7 @@ def make_shortlink(url: str, id: int) -> str:
 
 async def amain(log: logging.Logger, config: argparse.Namespace):
     jenv = jinja2.Environment(loader=jinja2.FileSystemLoader(config.template_dir))
-    templ = jenv.get_template(f"index.php")
+    page_templ = jenv.get_template(f"index.php")
     cursor = fetch_posts(config)
     prev = None
     current = None
@@ -169,7 +169,7 @@ async def amain(log: logging.Logger, config: argparse.Namespace):
         if current is not None:
             await dump_md(log=log, config=config, current=current)
             await dump_tags(log=log, config=config, current=current)
-            await dump_html(log, config, templ, current, next, prev)
+            await dump_html(log, config, page_templ, current, next, prev)
 
         prev = current
         current = next
@@ -201,7 +201,9 @@ def config(log: logging.Logger) -> argparse.Namespace:
         "--archive_count", default=10, help="Number of posts for the 'archive'"
     )
     parser.add_argument(
-        "--url", default="https://blog.unitedheroes.net", help="The location of your blog"
+        "--url",
+        default="https://blog.unitedheroes.net",
+        help="The location of your blog",
     )
     parser.add_argument(
         "--short_url",

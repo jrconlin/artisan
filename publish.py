@@ -109,7 +109,7 @@ def get_config(log: logging.Logger) -> argparse.Namespace:
         "--template_dir", default="template", help="Directory containing templates"
     )
     parser.add_argument(
-        "--output_dir", default="output", help="Directory to write files"
+        "--output_dir", default="archive", help="Directory to write files"
     )
     parser.add_argument(
         "--md_dir", default="source", dest="source", help="Source Markdown files"
@@ -123,7 +123,9 @@ def get_config(log: logging.Logger) -> argparse.Namespace:
         help="The title of your blog",
     )
     parser.add_argument(
-        "--url", default="https://blog.unitedheroes.net", help="The location of your blog"
+        "--url",
+        default="https://blog.unitedheroes.net",
+        help="The location of your blog",
     )
     parser.add_argument(
         "--short_url",
