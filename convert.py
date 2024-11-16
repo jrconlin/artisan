@@ -117,7 +117,7 @@ async def dump_tags(
 ):
     for tag in current["tags"]:
         tag_file = tag.lower().replace(" ", "_").strip("'\"")
-        with open(f"{config.output_dir}/{tag_file}.html", "a") as file:
+        with open(f"{config.output_dir}/{tag_file}.inc", "a") as file:
             file.write(
                 f"""<li><a href="{current["link"]}">{current["title"]}</a></li>\n"""
             )
@@ -141,6 +141,11 @@ async def amain(log: logging.Logger, config: argparse.Namespace):
             ((post),) = cursor.fetch_row()
             tags = fetch_tags(config, post[0].decode())
             body = post[3].decode()
+            if chr(13) in body:
+                body = body.replace(chr(13), "")
+            if f"\n\n" in body and "<br" not in body:
+                body = body.replace(f"\n\n", "<br/>\n<br/>\n")
+                log.debug("fixing linebreaks")
             if de_wp.search(body):
                 log.debug(f"De-wp {post[0]}")
                 body = de_wp.sub("/imgs", body)
@@ -162,14 +167,10 @@ async def amain(log: logging.Logger, config: argparse.Namespace):
         if current is None:
             current = next
             continue
-        if prev:
-            current["prev"] = prev["link"]
-        if next:
-            current["next"] = next["link"]
         if current is not None:
             await dump_md(log=log, config=config, current=current)
             await dump_tags(log=log, config=config, current=current)
-            await dump_html(log, config, templ, current, next, prev)
+            await dump_html(log, config, templ, current, prev, next)
 
         prev = current
         current = next
@@ -192,7 +193,7 @@ def config(log: logging.Logger) -> argparse.Namespace:
         "--template_dir", default="template", help="Directory containing templates"
     )
     parser.add_argument(
-        "--output_dir", default="output", help="Directory to write files"
+        "--output_dir", default="archive", help="Directory to write files"
     )
     parser.add_argument("--md_dir", default="source", help="Source Markdown files")
     parser.add_argument("--dsn", default="mysql://uh:uh@localhost/unitedheroes")
@@ -201,7 +202,9 @@ def config(log: logging.Logger) -> argparse.Namespace:
         "--archive_count", default=10, help="Number of posts for the 'archive'"
     )
     parser.add_argument(
-        "--url", default="https://blog.unitedheroes.net", help="The location of your blog"
+        "--url",
+        default="https://blog.unitedheroes.net",
+        help="The location of your blog",
     )
     parser.add_argument(
         "--short_url",

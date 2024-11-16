@@ -9,7 +9,7 @@
         <USAGE VALUE="ScreenSaver"></USAGE>
     </ITEM>
     {% for post in posts %}
-    <ITEM HREF="{{ post.link }}" PRECACHE="No" LASTMOD="{{ post.timestamp }}">
+    <ITEM HREF="{{ post.link }}" PRECACHE="No" LASTMOD="{{ post.date }}">
     <TITLE>{{ post.title }}</TITLE>
     <ABSTRACT>{{post.body}}</ABSTRACT>
     </ITEM>
