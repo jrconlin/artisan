@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 use std::{
-    collections::HashMap,
     env, fs,
     io::{self, BufRead, Write},
     path::Path,
@@ -512,16 +511,8 @@ async fn update_rss(
             .unwrap()
             .as_secs()
     };
-    let mut blog = HashMap::<&str, &str>::new();
-    let rss_link = format!("{}/feed", &settings.url);
-    let cdf_link = format!("{}/cdf", &settings.url);
-    blog.insert("url", &settings.url);
-    blog.insert("rss_link", &rss_link);
-    blog.insert("cdf_link", &cdf_link);
-    blog.insert("title", &settings.blog_name);
     context.insert("posts", &posts);
     context.insert("mod_time", &mod_time);
-    context.insert("blog", &blog);
     info!("📰 Updating RSS");
     let file = fs::File::create(Path::new(&settings.output).join("feed"))?;
     tera.render_to("template.rss", &context, file)?;

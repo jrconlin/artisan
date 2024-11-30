@@ -9,8 +9,8 @@
 	>
 <channel>
     <title><![CDATA[jr conlin's ink stained banana]]></title>
-<atom:link href="{{ blog.url }}/feed" rel="self" type="application/rss+xml" />
-<link>{{ blog.url }}</link>
+<atom:link href="https://blog.unitedheroes.net/feed" rel="self" type="application/rss+xml" />
+<link>https://blog.unitedheroes.net</link>
 <description><![CDATA[It's teaching the monkey to stop typing that's hard.]]></description>
 <lastBuildDate>{{ mod_time| date(format="%a, %d %b %Y %H:%M:%S +0000") }}</lastBuildDate>
 <language>en-US</language>
