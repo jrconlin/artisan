@@ -1,15 +1,15 @@
 <CHANNEL
-    BASE="{{ cdf_url }}"
-    HREF="{{ cdf_url }}"
+    BASE="https://blog.unitedheroes.net/cdf"
+    HREF="https://blog.unitedheroes.net/cdf"
     LASTMOD="{{ mod_time }}"
     PRECACHE="NO">
-    <TITLE>{{ blog.name }}</TITLE>
-    <ABSTRACT>{{ blog.description }}</ABSTRACT>
-    <ITEM HREF="{{ cdf_url }}">
+    <TITLE>jr conlin's ink stained banana</TITLE>
+    <ABSTRACT>Old school monkey crap. With typewriters.</ABSTRACT>
+    <ITEM HREF="https://blog.unitedheroes.net/cdf">
         <USAGE VALUE="ScreenSaver"></USAGE>
     </ITEM>
     {% for post in posts %}
-    <ITEM HREF="{{ post.link }}" PRECACHE="No" LASTMOD="{{ post.timestamp }}">
+    <ITEM HREF="{{ post.link }}" PRECACHE="No" LASTMOD="{{ post.date }}">
     <TITLE>{{ post.title }}</TITLE>
     <ABSTRACT>{{post.body}}</ABSTRACT>
     </ITEM>

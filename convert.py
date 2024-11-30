@@ -129,7 +129,7 @@ def make_shortlink(url: str, id: int) -> str:
 
 async def amain(log: logging.Logger, config: argparse.Namespace):
     jenv = jinja2.Environment(loader=jinja2.FileSystemLoader(config.template_dir))
-    page_templ = jenv.get_template(f"index.php")
+    templ = jenv.get_template(f"index.php")
     cursor = fetch_posts(config)
     prev = None
     current = None
@@ -141,6 +141,11 @@ async def amain(log: logging.Logger, config: argparse.Namespace):
             ((post),) = cursor.fetch_row()
             tags = fetch_tags(config, post[0].decode())
             body = post[3].decode()
+            if chr(13) in body:
+                body = body.replace(chr(13), "")
+            if f"\n\n" in body and "<br" not in body:
+                body = body.replace(f"\n\n", "<br/>\n<br/>\n")
+                log.debug("fixing linebreaks")
             if de_wp.search(body):
                 log.debug(f"De-wp {post[0]}")
                 body = de_wp.sub("/imgs", body)
@@ -162,14 +167,10 @@ async def amain(log: logging.Logger, config: argparse.Namespace):
         if current is None:
             current = next
             continue
-        if prev:
-            current["prev"] = prev["link"]
-        if next:
-            current["next"] = next["link"]
         if current is not None:
             await dump_md(log=log, config=config, current=current)
             await dump_tags(log=log, config=config, current=current)
-            await dump_html(log, config, page_templ, current, next, prev)
+            await dump_html(log, config, templ, current, prev, next)
 
         prev = current
         current = next
@@ -192,7 +193,7 @@ def config(log: logging.Logger) -> argparse.Namespace:
         "--template_dir", default="template", help="Directory containing templates"
     )
     parser.add_argument(
-        "--output_dir", default="output", help="Directory to write files"
+        "--output_dir", default="archive", help="Directory to write files"
     )
     parser.add_argument("--md_dir", default="source", help="Source Markdown files")
     parser.add_argument("--dsn", default="mysql://uh:uh@localhost/unitedheroes")

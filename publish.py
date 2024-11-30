@@ -54,7 +54,10 @@ class Post:
         self.title = ""
         self.tags = []
         self.body = ""
-        self.date = datetime.fromtimestamp(os.path.getctime(file))
+        self.date = datetime.fromtimestamp(os.path.getctime(file)).replace(
+            microsecond=0
+        )
+
         self.num = 0
         (num, name) = os.path.split(file)[1].split("_", 1)
         self.num = int(num)
@@ -170,13 +173,13 @@ def update_categories(log: logging.Logger, config: argparse.Namespace, post: Pos
         log.info("🐱 Updating category files")
     for tag in post.tags:
         tag_file = tag.lower().replace(" ", "_").strip("'\"")
-        cat_file = f"{config.output_dir}/{tag_file}.html"
+        cat_file = f"{config.output_dir}/{tag_file}.inc"
         # don't include the post in the cat file if it's already there.
         with open(cat_file, "r") as file:
             if post.link in file.read():
                 log.debug(f"😿 Skipping duplicate cat {tag_file}")
                 continue
-        with open(f"{config.output_dir}/{tag_file}.html", "a") as file:
+        with open(f"{config.output_dir}/{tag_file}.inc", "a") as file:
             log.debug(f"😸 Adding to cat {tag_file}")
             file.write(f"""<li><a href="{post.link}">{post.title}</a></li>\n""")
 
@@ -185,30 +188,36 @@ def update_rss(log: logging.Logger, config: argparse.Namespace, posts: list[Post
     # use jinja2 to compose the RSS file from posts
     mod_time = datetime.now().isoformat()
     blog = dict(
-        name=config.blog_name or "jr conlin's ink stained banana",
+        title=config.blog_name or "jr conlin's ink stained banana",
         url=config.url or "https://blog.jrconlin.com/",
+        rss_link=f"{config.url}/feed",
+        cdf_link=f"{config.url}/cdf",
     )
-
+    sp = sorted(posts, key=lambda p: p.date, reverse=True)
     log.info(f"🗞 Writing RSS...")
     templ = config.jinja.get_template("template.rss")
     with open(f"{config.output_dir}/feed", "w", encoding="utf-8") as rss:
-        templ.render(
-            {
-                "mod_time": mod_time,
-                "blog": blog,
-                "posts": posts,
-            }
+        rss.write(
+            templ.render(
+                {
+                    "mod_time": mod_time,
+                    "blog": blog,
+                    "posts": sp,
+                }
+            )
         )
     # use jinja2 to compose the CDF file from posts
     log.info(f"🗞 Writing CDF...")
     templ = config.jinja.get_template("template.cdf")
     with open(f"{config.output_dir}/cdf", "w", encoding="utf-8") as rss:
-        templ.render(
-            {
-                "mod_time": mod_time,
-                "blog": blog,
-                "posts": posts,
-            }
+        rss.write(
+            templ.render(
+                {
+                    "mod_time": mod_time,
+                    "blog": blog,
+                    "posts": posts,
+                }
+            )
         )
 
     pass
