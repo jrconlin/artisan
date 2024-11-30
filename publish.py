@@ -1,4 +1,4 @@
-#! python3
+#! venv/bin/python3
 
 #
 # Scan and publish the latest blog posts.
@@ -30,7 +30,7 @@ import logging
 import markdown
 import jinja2
 import toml
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class Post:
@@ -57,7 +57,6 @@ class Post:
         self.date = datetime.fromtimestamp(os.path.getctime(file)).replace(
             microsecond=0
         )
-
         self.num = 0
         (num, name) = os.path.split(file)[1].split("_", 1)
         self.num = int(num)
@@ -74,7 +73,7 @@ class Post:
                 self.title = line[2:]
                 continue
             if line.startswith("["):
-                self.tags = [tag.strip() for tag in line.strip("[']").split(",")]
+                self.tags = [tag.strip(" '\"") for tag in line.strip("[]").split(",")]
                 continue
             if line.startswith("<!-- Date:"):
                 self.date = datetime.fromisoformat(line[10:-3].strip())
@@ -83,8 +82,8 @@ class Post:
                 break
         self.body = markdown.markdown(
             "".join(content),
-            extensions=["codehilite", "fenced_code"],
-        )
+            extensions=["codehilite", "fenced_code", "tables", "sane_lists"],
+        ).replace('img src="/', f'img src="{config.url}/')
 
 
 def get_latest_posts(log: logging.Logger, config: argparse.Namespace) -> list[Post]:
@@ -186,12 +185,11 @@ def update_categories(log: logging.Logger, config: argparse.Namespace, post: Pos
 
 def update_rss(log: logging.Logger, config: argparse.Namespace, posts: list[Post]):
     # use jinja2 to compose the RSS file from posts
-    mod_time = datetime.now().isoformat()
+    mod_time = datetime.now(UTC)
     blog = dict(
         title=config.blog_name or "jr conlin's ink stained banana",
         url=config.url or "https://blog.jrconlin.com/",
-        rss_link=f"{config.url}/feed",
-        cdf_link=f"{config.url}/cdf",
+        description="It's teaching the monkey to stop typing that's hard.",
     )
     sp = sorted(posts, key=lambda p: p.date, reverse=True)
     log.info(f"🗞 Writing RSS...")
