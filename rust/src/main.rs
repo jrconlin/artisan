@@ -1,12 +1,13 @@
 #![forbid(unsafe_code)]
 use std::{
-    env, fs,
+    fs,
     io::{self, BufRead, Write},
     path::Path,
     time::SystemTime,
 };
 
 use chrono::prelude::*;
+use clap::Parser;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use slog::{slog_o, Drain};
@@ -35,11 +36,42 @@ pub enum PublishError {
     General(String),
 }
 
-/// Settings what set the things to do what you want.
+/// Command line and file arguments what set the things to do what you want.
+#[derive(Clone, Debug, Deserialize, Parser)]
+pub struct Args {
+    /// Optional config file. So you don't have to specify them all. (-c, --config | config.toml)
+    #[clap(short, long)]
+    pub config: Option<String>,
+    #[clap(short, long)]
+    /// Directory containing the jinja templates (-t, --templates | "./templates")
+    #[clap(short, long)]
+    pub templates: Option<String>,
+    /// Where to write the created files (-o , --output | "./archive")
+    #[clap(short, long)]
+    pub output: Option<String>,
+    /// Where the markdown files are (-s, --source | "./source")
+    #[clap(short, long)]
+    pub source: Option<String>,
+    /// How many files should be considered "recent"? (-r, --recent | 10)
+    #[clap(short, long)]
+    pub recent: Option<u32>,
+    /// The URL for the blog (--url)
+    #[clap(short, long)]
+    pub url: Option<String>,
+    /// Do you have a short URL? If not, reuse the `url` (--short_url)
+    #[clap(long)]
+    pub short_url: Option<String>,
+    /// Order by creation time or post number? (--by_time | False)
+    #[clap(long, action=clap::ArgAction::Set)]
+    pub by_time: Option<bool>,
+    /// Order by file name (--by_name | True)
+    #[clap(long, action=clap::ArgAction::Set)]
+    pub by_name: Option<bool>,
+}
+
+/// Internal settings.
 #[derive(Debug, Deserialize)]
 pub struct Settings {
-    /// Optional config file. So you don't have to specify them all. (-c, --config | config.toml)
-    pub config: Option<String>,
     /// Directory containing the jinja templates (-t, --templates | "./templates")
     pub templates: String,
     /// Where to write the created files (-o , --output | "./archive")
@@ -48,16 +80,36 @@ pub struct Settings {
     pub source: String,
     /// How many files should be considered "recent"? (-r, --recent | 10)
     pub recent: u32,
-    /// The name of the blog ( --blog_name )
-    pub blog_name: String,
     /// The URL for the blog (--url)
     pub url: String,
     /// Do you have a short URL? If not, reuse the `url` (--short_url)
     pub short_url: Option<String>,
     /// Order by creation time or post number? (--by_time | False)
-    pub by_time: Option<bool>,
+    pub by_time: bool,
     /// Order by file name (--by_name | True)
-    pub by_name: Option<bool>,
+    pub by_name: bool,
+}
+
+impl Settings {
+    /// Create a new Settings from Args backfilling using defaults.
+    fn backfill_using(value: Args, defaults: Settings) -> Self {
+        Self {
+            templates: value.templates.unwrap_or(defaults.templates),
+            output: value.output.unwrap_or(defaults.output),
+            source: value.source.unwrap_or(defaults.source),
+            recent: value.recent.unwrap_or(defaults.recent),
+            url: value.url.unwrap_or(defaults.url),
+            short_url: value.short_url.or(defaults.short_url),
+            by_time: value.by_time.unwrap_or(defaults.by_time),
+            by_name: value.by_name.unwrap_or(defaults.by_name),
+        }
+    }
+}
+
+impl From<Args> for Settings {
+    fn from(value: Args) -> Self {
+        Self::backfill_using(value, Settings::default())
+    }
 }
 
 impl Settings {
@@ -65,81 +117,33 @@ impl Settings {
     // weirdly complex to do them. Plus, I want the option of reading
     // from a config file.
     pub fn new() -> Result<Self, PublishError> {
-        let mut args = env::args();
-        let mut settings = Settings::default();
-
-        debug!("∈ Eating {:?}", args.next());
-
-        while let Some(op) = args.next() {
-            debug!("∈ {}", &op);
-            match op.as_str() {
-                "-c" | "--config" => {
-                    if let Some(filename) = args.next() {
-                        let file = Path::new(&filename);
-                        if !file.exists() {
-                            return Err(PublishError::SettingsError(format!(
-                                "Config file not found {:?}",
-                                filename
-                            )));
-                        }
-                        let handle = fs::read_to_string(file).map_err(|e| {
-                            PublishError::SettingsError(format!(
-                                "Could not read config file: {:?} {:?}",
-                                filename, e
-                            ))
-                        })?;
-                        settings = toml::from_str(&handle).map_err(|e| {
-                            PublishError::SettingsError(format!(
-                                "Could not parse config file contents: {:?}",
-                                e
-                            ))
-                        })?;
-                    }
-                }
-                "-t" | "--templates" => {
-                    if let Some(val) = args.next() {
-                        settings.templates = val;
-                        debug!("Setting templates: {}", &settings.templates);
-                    }
-                }
-                "-o" | "--output" => {
-                    if let Some(val) = args.next() {
-                        settings.output = val;
-                    }
-                }
-                "-s" | "--source" => {
-                    if let Some(val) = args.next() {
-                        settings.source = val;
-                    }
-                }
-                "-r" | "--recent" => {
-                    if let Some(val) = args.next() {
-                        settings.recent = val.parse::<u32>().map_err(|_| {
-                            PublishError::SettingsError("Could not parse recent count".to_owned())
-                        })?;
-                    }
-                }
-                "--url" => {
-                    if let Some(val) = args.next() {
-                        settings.url = val;
-                    }
-                }
-                "--short-url" => {
-                    if let Some(val) = args.next() {
-                        settings.short_url = Some(val);
-                    }
-                }
-                "--by_time" => {
-                    settings.by_time = Some(true);
-                    settings.by_name = Some(false);
-                }
-                "--by_name" => {
-                    settings.by_time = Some(false);
-                    settings.by_name = Some(true);
-                }
-                _ => {}
+        let args = Args::parse();
+        debug!("∈ args {:?}", &args);
+        let mut settings: Settings = if let Some(filename) = args.config.clone() {
+            let file = Path::new(&filename);
+            if !file.exists() {
+                return Err(PublishError::SettingsError(format!(
+                    "Config file not found: {:?}",
+                    filename
+                )));
             }
-        }
+            let buffer = fs::read_to_string(file).map_err(|e| {
+                PublishError::SettingsError(format!(
+                    "Could not read config from file {:?} {:?}",
+                    filename, e
+                ))
+            })?;
+            let file_args: Args = toml::from_str(&buffer).map_err(|e| {
+                PublishError::SettingsError(format!(
+                    "Could not parse config file {:?} {:?}",
+                    filename, e
+                ))
+            })?;
+            Settings::backfill_using(args, file_args.into())
+        } else {
+            args.into()
+        };
+        debug!("∈ settings {:?}", &settings);
         debug!("∈ Returning settings...");
         if !settings.templates.contains("*") {
             debug!("∈ Fixing templates...");
@@ -152,16 +156,14 @@ impl Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            config: Some("config.toml".to_owned()),
             templates: "template/*".to_owned(),
             output: "archive".to_owned(),
             source: "source".to_owned(),
             recent: 10,
-            blog_name: "jr conlin's ink stained banana".to_owned(),
             url: "https://blog.unitedheroes.net".to_owned(),
-            short_url: Some("https://jrconl.in/b".to_owned()),
-            by_time: Some(false),
-            by_name: Some(true),
+            short_url: None,
+            by_time: false,
+            by_name: true,
         }
     }
 }
