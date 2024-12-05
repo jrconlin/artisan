@@ -113,9 +113,6 @@ impl From<Args> for Settings {
 }
 
 impl Settings {
-    // All because every arg parser either can't do bools or makes it
-    // weirdly complex to do them. Plus, I want the option of reading
-    // from a config file.
     pub fn new() -> Result<Self, PublishError> {
         let args = Args::parse();
         debug!("∈ args {:?}", &args);
