@@ -1,0 +1,16 @@
+.envrc
+.vscode/
+*.mysql
+*.taz
+*/.vscode/
+archive/
+build/
+Cargo.lock
+config.toml
+dist/
+publish
+publish.spec
+source/
+sync
+target/
+venv/

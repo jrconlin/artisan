@@ -1,0 +1,12 @@
+# The directory containing the templates to use.
+templates = "./template"
+# Where to write the composed HTML/PHP files
+output = "./archive"
+# Where the "source" mark-down files are
+source = "./source"
+# How many previous articles do you want to use for the archive?
+recent = 10
+# The main URL for the blog the article number will be added to this.
+url = "https://blog.unitedheroes.net"
+# An optional short link for the blog post the article number will be added to this.
+short_url = "https://jrconl.in/b/"

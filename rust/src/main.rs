@@ -3,6 +3,7 @@ use std::{
     fs,
     io::{self, BufRead, Write},
     path::Path,
+    process::Command,
     time::SystemTime,
 };
 
@@ -62,11 +63,13 @@ pub struct Args {
     #[clap(long)]
     pub short_url: Option<String>,
     /// Order by creation time or post number? (--by_time | False)
-    #[clap(long, action=clap::ArgAction::Set)]
+    #[clap(long, action=clap::ArgAction::SetTrue)]
     pub by_time: Option<bool>,
     /// Order by file name (--by_name | True)
-    #[clap(long, action=clap::ArgAction::Set)]
+    #[clap(long, action=clap::ArgAction::SetTrue)]
     pub by_name: Option<bool>,
+    #[clap(long, action=clap::ArgAction::SetTrue)]
+    pub new: Option<bool>,
 }
 
 /// Internal settings.
@@ -88,6 +91,8 @@ pub struct Settings {
     pub by_time: bool,
     /// Order by file name (--by_name | True)
     pub by_name: bool,
+    /// just create a new post
+    pub new: bool,
 }
 
 impl Settings {
@@ -102,6 +107,7 @@ impl Settings {
             short_url: value.short_url.or(defaults.short_url),
             by_time: value.by_time.unwrap_or(defaults.by_time),
             by_name: value.by_name.unwrap_or(defaults.by_name),
+            new: value.new.unwrap_or(defaults.new),
         }
     }
 }
@@ -116,14 +122,11 @@ impl Settings {
     pub fn new() -> Result<Self, PublishError> {
         let args = Args::parse();
         debug!("∈ args {:?}", &args);
-        let mut settings: Settings = if let Some(filename) = args.config.clone() {
-            let file = Path::new(&filename);
-            if !file.exists() {
-                return Err(PublishError::SettingsError(format!(
-                    "Config file not found: {:?}",
-                    filename
-                )));
-            }
+        let filename = args.config.clone().unwrap_or("config.toml".to_owned());
+        let file = Path::new(&filename);
+        let mut settings: Settings = if !file.exists() {
+            args.into()
+        } else {
             let buffer = fs::read_to_string(file).map_err(|e| {
                 PublishError::SettingsError(format!(
                     "Could not read config from file {:?} {:?}",
@@ -137,8 +140,6 @@ impl Settings {
                 ))
             })?;
             Settings::backfill_using(args, file_args.into())
-        } else {
-            args.into()
         };
         debug!("∈ settings {:?}", &settings);
         debug!("∈ Returning settings...");
@@ -161,6 +162,7 @@ impl Default for Settings {
             short_url: None,
             by_time: false,
             by_name: true,
+            new: false,
         }
     }
 }
@@ -259,7 +261,11 @@ impl Post {
                         result.parse_title(&line)?;
                     }
                     if line.starts_with("> ") {
-                        result.summary = Some(line.trim().to_owned());
+                        result.summary = Some(
+                            format!("{} {}", result.summary.unwrap_or_default(), line.trim())
+                                .trim()
+                                .to_owned(),
+                        );
                     }
                 } else {
                     body.push(line);
@@ -323,13 +329,18 @@ impl Post {
     }
 
     #[allow(unused)]
-    fn to_file(&self, path: &Path) -> Result<&Self, PublishError> {
+    fn to_file(&self, path: &Path) -> Result<String, PublishError> {
         let file_name = format!("{:?}_{}.md", self.num, self.name);
-        info!("Writing: {:?}", path.join(&file_name));
-        let mut file = fs::File::create(path.join(file_name))?;
+        let destination = path.join(&file_name);
+        info!("Writing: {:?}", destination);
+        let mut file = fs::File::create(destination.clone())?;
         // First, write the headers
         file.write_all(self.to_string().as_bytes())?;
-        Ok(self)
+        Ok(destination
+            .as_os_str()
+            .to_str()
+            .unwrap_or_default()
+            .to_owned())
     }
 }
 
@@ -485,6 +496,7 @@ async fn update_archive(settings: &Settings, posts: &Vec<Post>) -> Result<(), Pu
     let archive = Path::new(&settings.output).join("archive.inc");
     let mut file = fs::File::create(&archive)?;
     trace!("🏤 Updating archive: {:?}", &archive);
+    writeln!(&mut file, "<ul>")?;
     for post in posts {
         writeln!(
             &mut file,
@@ -492,6 +504,7 @@ async fn update_archive(settings: &Settings, posts: &Vec<Post>) -> Result<(), Pu
             post.link, post.title
         )?;
     }
+    writeln!(&mut file, "</ul>")?;
     Ok(())
 }
 
@@ -540,6 +553,33 @@ async fn main() -> Result<(), PublishError> {
     let tera = Tera::new(&settings.templates)?;
     let mut posts = get_latest_posts(&settings).await?;
     posts.reverse();
+    let posts = get_latest_posts(&settings).await?;
+    if settings.new {
+        if let Some(latest) = posts.last() {
+            info!("Latest num: {}", latest.num);
+            let new_post = Post {
+                num: latest.num + 1,
+                tags: ["crap".to_owned()].to_vec(),
+                title: "To Be Determined".to_owned(),
+                name: "tbd".to_owned(),
+                summary: Some("Remember to change the name of this file to match the short summary!".to_owned()),
+                date: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                ..Default::default()
+            };
+            let new_file = new_post.to_file(Path::new(&settings.source))?;
+            if let Ok(editor) = std::env::var("EDITOR") {
+                println!("Opening new post: {:?}", &new_file);
+                Command::new(editor)
+                    .args([new_file])
+                    .output()
+                    .expect("Could not edit new file");
+            }
+            return Ok(());
+        }
+    }
     let index = publish_posts(&settings, &posts, &tera).await?;
     if let Some(index) = index {
         set_index(&settings, &index).await?;

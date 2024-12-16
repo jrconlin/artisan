@@ -1,6 +1,6 @@
 [package]
 name = "publish"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["jr conlin <src+publish@jrconlin.com>"]
 
@@ -30,5 +30,5 @@ slog-stdlog = "4.1"
 slog-term = "2.6"
 thiserror = "2.0"
 uuid = { version = "1.1", features = ["serde", "v4"] }
-tokio = { version = "1.41", features = ["full"] }
+tokio = { version = "1.42", features = ["full"] }
 tokio-macros = { version = "2.4" }
